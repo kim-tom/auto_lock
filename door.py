@@ -59,6 +59,7 @@ class State:
         else:
             distance = float(json_["distance"])
         return distance
+    @classmethod
     def is_opened(self):
         opened = True
         try:
@@ -114,7 +115,7 @@ class Locked(State):
         if self.judge_id(id):
             print("RFID found.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
-                self.state.line_broadcast("帰宅")
+                self.line_broadcast("帰宅")
             return True
         elif self.detect_human():
             print("Human found.")
