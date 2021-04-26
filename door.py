@@ -138,12 +138,12 @@ class Door:
             next_state = self.state.next_state()
         if next_state == STATE_LOCKED:
             if self.state == self.unlocked:
-                self.state.reset()
+                self.locked.reset()
             self.state = self.locked
             self.lock()
         elif next_state == STATE_UNLOCKED:
             if self.state == self.locked:
-                self.state.reset()
+                self.unlocked.reset()
             self.state = self.unlocked
             self.unlock()
     def get_pos(self):
