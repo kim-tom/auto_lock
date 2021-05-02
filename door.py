@@ -106,17 +106,18 @@ class Locked(State):
             return STATE_LOCKED
     def decide_unlock(self):
         id = self.get_id()
-        distance = self.detect_human()
         if self.judge_id(id):
             print("RFID found.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.line_broadcast("ただいま帰ったでござる。")
             return True
-        elif distance:
+
+        distance = self.detect_human()
+        if distance:
             print("Human found.({:d}cm)".format(int(distance)))
             return True
-        else:
-            return False
+
+        return False
 
 class Door:
     def __init__(self):
@@ -142,6 +143,7 @@ class Door:
             self.state = self.unlocked
             self.unlock()
     def get_pos(self):
+        deg = self.state.deg
         try:
             deg = int(requests.get("http://localhost:3001/servo/", timeout=(0.5, 0.5)).json()['pos'])
         except requests.exceptions.RequestException as e:
