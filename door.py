@@ -54,7 +54,7 @@ class State:
         except requests.exceptions.RequestException as e:
             print("U-Sonic Server: ", e.__doc__.strip())
         else:
-            distance = float(json_["distance"])
+            distance = int(json_["distance"])
         return distance
     @classmethod
     def is_opened(self):
@@ -114,7 +114,7 @@ class Locked(State):
 
         distance = self.detect_human()
         if distance:
-            print("Human found.({:d}cm)".format(int(distance)))
+            print("Human found.({:d}cm)".format(distance))
             return True
 
         return False
