@@ -7,7 +7,8 @@ UNLOCKED_DEG = 175
 LOCKED_DEG = 85
 STATE_UNLOCKED = 0
 STATE_LOCKED = 1
-UNLOCKED_TIME = 20
+UNLOCKED_TIME = 10
+DISTANCE = 50
 NOTIFTY_INTERVAL = 300
 key_file = open("key.txt", "r")
 keys = key_file.readlines()
@@ -27,10 +28,10 @@ class State:
         id = 0
         try:
             json_ = requests.get("http://localhost:3000/", timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("RFID Server ReadTimeout")
         except requests.exceptions.ConnectTimeout:
-            print("RFID Server ConnectTimeout")
+            """RFIDが認識されなかったら、タイムアウトする"""
+        except requests.exceptions.RequestException as e:
+            print("RFID Server: ", e.__doc__.strip())
         else:
             if(type(json_['id']) is list):
                 id = ','.join(map(str, json_['id']))
@@ -40,10 +41,8 @@ class State:
         detect = False
         try:
             json_ = requests.get("http://localhost:3002/", timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("PIR Server ReadTimeout")
-        except requests.exceptions.ConnectTimeout:
-            print("PIR Server ConnectTimeout")
+        except requests.exceptions.RequestException as e:
+            print("PIR Server: ", e.__doc__.strip())
         else:
             detect = json_["detect"]
         return detect
@@ -52,10 +51,8 @@ class State:
         distance = 400
         try:
             json_ = requests.get("http://localhost:3003/", timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("Ditance Server ReadTimeout")
-        except requests.exceptions.ConnectTimeout:
-            print("Distance Server ConnectTimeout")
+        except requests.exceptions.RequestException as e:
+            print("U-Sonic Server: ", e.__doc__.strip())
         else:
             distance = float(json_["distance"])
         return distance
@@ -64,27 +61,24 @@ class State:
         opened = True
         try:
             json_ = requests.get("http://localhost:3005/", timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("Ditance Server ReadTimeout")
-        except requests.exceptions.ConnectTimeout:
-            print("Distance Server ConnectTimeout")
+        except requests.exceptions.RequestException as e:
+            print("L-Switch Server: ", e.__doc__.strip())
         else:
             opened = json_["opened"]
         return opened
     @classmethod
     def detect_human(self):
-        if self.sr04_request() < 30:
-            return True
+        distance = self.sr04_request()
+        if distance < DISTANCE:
+            return distance
         else:
             return False
     @classmethod
     def line_broadcast(self, message):
         try:
             requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("LINE Broadcast Server ReadTimeout")
-        except requests.exceptions.ConnectTimeout:
-            print("LINE Broadcast Server ConnectTimeout")
+        except requests.exceptions.RequestException as e:
+            print("LINE Broadcast Server: ", e.__doc__.strip())
     def reset(self):
         self.timer = time.time()
 class Unlocked(State):
@@ -112,13 +106,14 @@ class Locked(State):
             return STATE_LOCKED
     def decide_unlock(self):
         id = self.get_id()
+        distance = self.detect_human()
         if self.judge_id(id):
             print("RFID found.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
-                self.line_broadcast("帰宅")
+                self.line_broadcast("ただいま帰ったでござる。")
             return True
-        elif self.detect_human():
-            print("Human found.")
+        elif distance:
+            print("Human found.({:d}cm)".format(int(distance)))
             return True
         else:
             return False
@@ -149,17 +144,14 @@ class Door:
     def get_pos(self):
         try:
             deg = int(requests.get("http://localhost:3001/servo/", timeout=(0.5, 0.5)).json()['pos'])
-        except :
-            print('Exception: get_pos()')
-            deg = self.state.deg
+        except requests.exceptions.RequestException as e:
+            print("Servo Server: ", e.__doc__.strip())
         return deg 
     def rotate_motor(self, deg):
         try:
             requests.get("http://localhost:3001/servo/" + str(deg), timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ReadTimeout:
-            print("Servo Server ReadTimeout")
-        except requests.exceptions.ConnectTimeout:
-            print("Servo Server ConnectTimeout")
+        except requests.exceptions.RequestException as e:
+            print("Servo Server: ", e.__doc__.strip())
     def lock(self):
         self.rotate_motor(LOCKED_DEG)
     def unlock(self):
