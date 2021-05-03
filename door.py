@@ -125,6 +125,7 @@ class Door:
         self.locked = Locked()
         self.state = self.unlocked
         self.unlock()
+        print('Started auto lock system.')
     def update_state(self):
         # 状態の角度と認識の角度が異なる場合は、一旦解錠
         if self.state.deg != self.get_pos():
@@ -135,12 +136,12 @@ class Door:
         if next_state == STATE_LOCKED:
             if self.state == self.unlocked:
                 self.locked.reset()
-            self.state = self.locked
+                print('Lock!')
             self.lock()
         elif next_state == STATE_UNLOCKED:
             if self.state == self.locked:
                 self.unlocked.reset()
-            self.state = self.unlocked
+                print('Unlock.')
             self.unlock()
     def get_pos(self):
         deg = self.state.deg
@@ -155,6 +156,8 @@ class Door:
         except requests.exceptions.RequestException as e:
             print("Servo Server: ", e.__doc__.strip())
     def lock(self):
-        self.rotate_motor(LOCKED_DEG)
+        self.state = self.locked
+        self.rotate_motor(self.locked.deg)
     def unlock(self):
-        self.rotate_motor(UNLOCKED_DEG)
+        self.state = self.unlocked
+        self.rotate_motor(self.unlocked.deg)
