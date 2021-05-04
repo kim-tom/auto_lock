@@ -28,10 +28,8 @@ class State:
         id = 0
         try:
             json_ = requests.get("http://localhost:3000/", timeout=(0.5, 0.5)).json()
-        except requests.exceptions.ConnectTimeout:
-            """RFIDが認識されなかったら、タイムアウトする"""
         except requests.exceptions.RequestException as e:
-            print("RFID Server: ", e.__doc__.strip())
+            print("RFID Server:", e.__doc__.strip())
         else:
             if(type(json_['id']) is list):
                 id = ','.join(map(str, json_['id']))
@@ -42,7 +40,7 @@ class State:
         try:
             json_ = requests.get("http://localhost:3002/", timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
-            print("PIR Server: ", e.__doc__.strip())
+            print("PIR Server:", e.__doc__.strip())
         else:
             detect = json_["detect"]
         return detect
@@ -52,7 +50,7 @@ class State:
         try:
             json_ = requests.get("http://localhost:3003/", timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
-            print("U-Sonic Server: ", e.__doc__.strip())
+            print("U-Sonic Server:", e.__doc__.strip())
         else:
             distance = int(json_["distance"])
         return distance
@@ -62,7 +60,7 @@ class State:
         try:
             json_ = requests.get("http://localhost:3005/", timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
-            print("L-Switch Server: ", e.__doc__.strip())
+            print("L-Switch Server:", e.__doc__.strip())
         else:
             opened = json_["opened"]
         return opened
@@ -78,7 +76,7 @@ class State:
         try:
             requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
-            print("LINE Broadcast Server: ", e.__doc__.strip())
+            print("LINE Broadcast Server:", e.__doc__.strip())
     def reset(self):
         self.timer = time.time()
 class Unlocked(State):
@@ -107,14 +105,15 @@ class Locked(State):
     def decide_unlock(self):
         id = self.get_id()
         if self.judge_id(id):
-            print("RFID found.")
+            print("RFID authenticated.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.line_broadcast("ただいま帰ったでござる。")
+                print("LINE message broadcasted.")
             return True
 
         distance = self.detect_human()
         if distance:
-            print("Human found.({:d}cm)".format(distance))
+            print("Human detected.({:d}cm)".format(distance))
             return True
 
         return False
@@ -148,13 +147,13 @@ class Door:
         try:
             deg = int(requests.get("http://localhost:3001/servo/", timeout=(0.5, 0.5)).json()['pos'])
         except requests.exceptions.RequestException as e:
-            print("Servo Server: ", e.__doc__.strip())
+            print("Servo Server:", e.__doc__.strip())
         return deg 
     def rotate_motor(self, deg):
         try:
             requests.get("http://localhost:3001/servo/" + str(deg), timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
-            print("Servo Server: ", e.__doc__.strip())
+            print("Servo Server:", e.__doc__.strip())
     def lock(self):
         self.state = self.locked
         self.rotate_motor(self.locked.deg)
