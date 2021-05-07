@@ -77,6 +77,12 @@ class State:
             requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 0.5)).json()
         except requests.exceptions.RequestException as e:
             print("LINE Broadcast Server:", e.__doc__.strip())
+    @classmethod
+    def google_home_notifier(self, msg):
+        try:
+            requests.get("http://localhost:8091/google-home-notifier?text=" + msg, timeout=(0.5, 0.5))
+        except requests.exceptions.RequestException as e:
+            print("GHN Server:", e.__doc__.strip())
     def reset(self):
         self.timer = time.time()
 class Unlocked(State):
@@ -114,6 +120,7 @@ class Locked(State):
         distance = self.detect_human()
         if distance:
             print("Human detected.({:d}cm)".format(distance))
+            self.google_home_notifier(str(distance) + 'センチ先に人を検知しました。')
             return True
 
         return False
