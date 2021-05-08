@@ -2,6 +2,7 @@ import time
 import requests
 import json
 import os
+from enum import Flag, auto
 
 UNLOCKED_DEG = 175
 LOCKED_DEG = 85
@@ -10,9 +11,16 @@ STATE_LOCKED = 1
 UNLOCKED_TIME = 10
 DISTANCE = 50
 NOTIFTY_INTERVAL = 300
+
 key_file = open("key.txt", "r")
 keys = key_file.readlines()
 key_file.close()
+
+# 処理フラグ
+class Proc(Flag):
+    NONE = 0
+    LINE = auto()
+    GHOME = auto()
 
 class State:
     def next_state(self):
@@ -74,13 +82,15 @@ class State:
     @classmethod
     def line_broadcast(self, message):
         try:
-            requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 0.5)).json()
+            requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 2.0))
         except requests.exceptions.RequestException as e:
             print("LINE Broadcast Server:", e.__doc__.strip())
+        else:
+            print("LINE message broadcasted.")
     @classmethod
     def google_home_notifier(self, msg):
         try:
-            requests.get("http://localhost:8091/google-home-notifier?text=" + msg, timeout=(0.5, 0.5))
+            requests.get("http://localhost:8091/google-home-notifier?text=" + msg, timeout=(0.5, 2.0))
         except requests.exceptions.RequestException as e:
             print("GHN Server:", e.__doc__.strip())
     def reset(self):
@@ -99,6 +109,7 @@ class Unlocked(State):
             return STATE_UNLOCKED
 
 class Locked(State):
+    post_proc_flag = Proc.NONE
     deg = LOCKED_DEG
     def __init__(self):
         self.name = "LOCKED"
@@ -113,25 +124,30 @@ class Locked(State):
         if self.judge_id(id):
             print("RFID authenticated.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
-                self.line_broadcast("ただいま帰ったでござる。")
-                print("LINE message broadcasted.")
+                self.post_proc_flag |= Proc.LINE
             return True
 
         distance = self.detect_human()
         if distance:
             print("Human detected.({:d}cm)".format(distance))
-            self.google_home_notifier(str(distance) + 'センチ先に人を検知しました。')
+            self.post_proc_flag |= Proc.GHOME
             return True
 
         return False
-
+    def post_proc(self):
+        if(Proc.LINE in self.post_proc_flag):
+            self.line_broadcast("ただいま帰ったでござる。")
+            self.post_proc_flag ^= Proc.LINE
+        if(Proc.GHOME in self.post_proc_flag):
+            self.google_home_notifier("人を検知しました。")
+            self.post_proc_flag ^= Proc.GHOME
 class Door:
     def __init__(self):
+        print('Initializing auto lock system.')
         self.unlocked = Unlocked()
         self.locked = Locked()
         self.state = self.unlocked
         self.unlock()
-        print('Started auto lock system.')
     def update_state(self):
         # 状態の角度と認識の角度が異なる場合は、一旦解錠
         if self.state.deg != self.get_pos():
@@ -140,15 +156,18 @@ class Door:
         else:
             next_state = self.state.next_state()
         if next_state == STATE_LOCKED:
+            self.lock()
             if self.state == self.unlocked:
                 self.locked.reset()
                 print('Lock!')
-            self.lock()
+                self.state = self.locked
         elif next_state == STATE_UNLOCKED:
+            self.unlock()
             if self.state == self.locked:
                 self.unlocked.reset()
+                self.locked.post_proc()
                 print('Unlock.')
-            self.unlock()
+                self.state = self.unlocked
     def get_pos(self):
         deg = self.state.deg
         try:
@@ -158,12 +177,10 @@ class Door:
         return deg 
     def rotate_motor(self, deg):
         try:
-            requests.get("http://localhost:3001/servo/" + str(deg), timeout=(0.5, 0.5)).json()
+            requests.get("http://localhost:3001/servo/" + str(deg), timeout=(0.5, 0.5))
         except requests.exceptions.RequestException as e:
             print("Servo Server:", e.__doc__.strip())
     def lock(self):
-        self.state = self.locked
         self.rotate_motor(self.locked.deg)
     def unlock(self):
-        self.state = self.unlocked
         self.rotate_motor(self.unlocked.deg)
