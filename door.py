@@ -25,14 +25,14 @@ class Proc(Flag):
 class State:
     def next_state(self):
         raise NotImplementedError("update_state is abstractmethod")
-    @classmethod
-    def judge_id(self, id):
+    @staticmethod
+    def judge_id(id):
         for key in keys:
             if key.strip('\n') == id:
                 return True
         return False
-    @classmethod
-    def get_id(self):
+    @staticmethod
+    def get_id():
         id = 0
         try:
             json_ = requests.get("http://localhost:3000/", timeout=(0.5, 0.5)).json()
@@ -42,8 +42,8 @@ class State:
             if(type(json_['id']) is list):
                 id = ','.join(map(str, json_['id']))
         return id
-    @classmethod
-    def sr501_request(self):
+    @staticmethod
+    def sr501_request():
         detect = False
         try:
             json_ = requests.get("http://localhost:3002/", timeout=(0.5, 0.5)).json()
@@ -52,8 +52,8 @@ class State:
         else:
             detect = json_["detect"]
         return detect
-    @classmethod
-    def sr04_request(self):
+    @staticmethod
+    def sr04_request():
         distance = 400
         try:
             json_ = requests.get("http://localhost:3003/", timeout=(0.5, 0.5)).json()
@@ -62,8 +62,8 @@ class State:
         else:
             distance = int(json_["distance"])
         return distance
-    @classmethod
-    def is_opened(self):
+    @staticmethod
+    def is_opened():
         opened = True
         try:
             json_ = requests.get("http://localhost:3005/", timeout=(0.5, 0.5)).json()
@@ -72,25 +72,25 @@ class State:
         else:
             opened = json_["opened"]
         return opened
-    @classmethod
-    def detect_human(self):
-        distance = self.sr04_request()
+    @staticmethod
+    def detect_human():
+        distance = State.sr04_request()
         if distance < DISTANCE:
             return distance
         else:
             return False
-    @classmethod
-    def line_broadcast(self, message):
+    @staticmethod
+    def line_broadcast(message):
         try:
             requests.get("http://localhost:3004/broadcast/" + message, timeout=(0.5, 2.0))
         except requests.exceptions.RequestException as e:
             print("LINE Broadcast Server:", e.__doc__.strip())
         else:
             print("LINE message broadcasted.")
-    @classmethod
-    def google_home_notifier(self, msg):
+    @staticmethod
+    def google_home_notifier():
         try:
-            requests.get("http://localhost:8091/google-home-notifier?text=" + msg, timeout=(0.5, 2.0))
+            requests.get("http://localhost:8091/google-home-notifier?text=http%3A%2F%2F192.168.100.105%2Fkenchi.mp3", timeout=(0.5, 2.0))
         except requests.exceptions.RequestException as e:
             print("GHN Server:", e.__doc__.strip())
     def reset(self):
@@ -139,7 +139,7 @@ class Locked(State):
             self.line_broadcast("ただいま帰ったでござる。")
             self.post_proc_flag ^= Proc.LINE
         if(Proc.GHOME in self.post_proc_flag):
-            self.google_home_notifier("人を検知しました。")
+            self.google_home_notifier()
             self.post_proc_flag ^= Proc.GHOME
 class Door:
     def __init__(self):
