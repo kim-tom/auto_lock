@@ -21,6 +21,7 @@ keys = set(keys)
 def authenticate_rfid():
     id_ = RC522.get_rfid()
     if id_ in keys:
+        print("RFID authenticated.")
         return True
     else:
         return False
@@ -72,13 +73,12 @@ class Locked(State):
         self.reset()
         self.exit_proc_flag = Proc.NONE
     def next_state(self):
-        if self.decide_unlock():
+        if self.should_unlock():
             return "UNLOCKED"
         else:
             return "LOCKED"
-    def decide_unlock(self):
+    def should_unlock(self):
         if authenticate_rfid():
-            print("RFID authenticated.")
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.exit_proc_flag |= Proc.LINE
             return True
