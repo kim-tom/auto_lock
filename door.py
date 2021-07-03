@@ -1,11 +1,8 @@
 import time
-import requests
-import json
-import os
 from enum import Flag, auto
-from DS3225 import DS3225
-from RC522 import RC522
-from SR04 import SR04
+from DS3225 import DS3225       # モーター
+from RC522 import RC522         # RFIDリーダー
+from SR04 import SR04           # 超音波距離センサ
 from LEAD_SWITCH import LEAD_SWITCH
 from LINE import LINE
 from google_home import google_home
@@ -15,12 +12,6 @@ LOCKED_DEG = 85
 UNLOCKED_TIME = 10
 DISTANCE = 50
 NOTIFTY_INTERVAL = 300
-
-# 処理フラグ
-class Proc(Flag):
-    NONE = 0
-    LINE = auto()
-    GHOME = auto()
 
 # RFID認証用鍵の準備
 with open("key.txt", "r") as f:
@@ -42,7 +33,7 @@ def detect_human():
         return False
 class State:
     def next_state(self):
-        raise NotImplementedError("update_state is abstractmethod")
+        raise NotImplementedError("next_state is abstractmethod")
     def entry_proc(self):
         raise NotImplementedError("entry_proc is abstractmethod")
     def exit_proc(self):
@@ -68,12 +59,18 @@ class Unlocked(State):
         DS3225.rotate_motor(self.deg)
     def exit_proc(self):
         pass
+
+# Locked状態、exit処理指定フラグ
+class Proc(Flag):
+    NONE = 0
+    LINE = auto()
+    GHOME = auto()
 class Locked(State):
-    exit_proc_flag = Proc.NONE
     deg = LOCKED_DEG
     def __init__(self):
         self.name = "LOCKED"
         self.reset()
+        self.exit_proc_flag = Proc.NONE
     def next_state(self):
         if self.decide_unlock():
             return "UNLOCKED"
@@ -85,7 +82,7 @@ class Locked(State):
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.exit_proc_flag |= Proc.LINE
             return True
- 
+
         if detect_human():
             self.exit_proc_flag |= Proc.GHOME
             return True
