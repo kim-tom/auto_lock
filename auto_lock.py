@@ -1,4 +1,5 @@
 import time
+import asyncio
 from enum import Flag, auto
 from DS3225 import DS3225       # モーター
 from RC522 import RC522         # RFIDリーダー
@@ -94,10 +95,11 @@ class Locked(State):
         DS3225.rotate_motor(self.deg)
     def exit_proc(self):
         if(Proc.LINE in self.exit_proc_flag):
-            LINE.broadcast("ただいま帰ったでござる。")
+            asyncio.get_event_loop().run_in_executor(None, LINE.broadcast, "ただいま帰ったでござる。")
             self.exit_proc_flag ^= Proc.LINE
         if(Proc.GHOME in self.exit_proc_flag):
-            google_home.notify("http://localhost:8091/google-home-notifier?text=http%3A%2F%2F192.168.100.105%2Fkenchi.mp3")
+            url = "http://localhost:8091/google-home-notifier?text=http%3A%2F%2F192.168.100.105%2Fkenchi.mp3"
+            asyncio.get_event_loop().run_in_executor(None, google_home.notify, url)
             self.exit_proc_flag ^= Proc.GHOME
 class Door:
     def __init__(self):
