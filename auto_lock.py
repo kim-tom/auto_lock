@@ -19,14 +19,14 @@ with open("key.txt", "r") as f:
     keys = f.readlines()
 keys = [key.strip() for key in keys]
 keys = set(keys)
-def authenticate_rfid():
+async def authenticate_rfid():
     id_ = RC522.get_rfid()
     if id_ in keys:
         print("RFID authenticated.")
         return True
     else:
         return False
-def detect_human():
+async def detect_human():
     distance = SR04.get_distance()
     if distance < DISTANCE:
         print("Human detected.({:d}cm)".format(distance))
@@ -79,12 +79,18 @@ class Locked(State):
         else:
             return "LOCKED"
     def should_unlock(self):
-        if authenticate_rfid():
+        loop = asyncio.get_event_loop()
+        gather = asyncio.gather(
+            authenticate_rfid(),
+            detect_human()
+        )
+        is_rfid_authenticated, is_detected_human = loop.run_until_complete(gather)
+        if is_rfid_authenticated:
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.exit_proc_flag |= Proc.LINE
             return True
 
-        if detect_human():
+        if is_detected_human:
             self.exit_proc_flag |= Proc.GHOME
             return True
 
