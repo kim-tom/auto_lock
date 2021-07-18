@@ -3,7 +3,7 @@ import asyncio
 from enum import Flag, auto
 from DS3225 import DS3225       # モーター
 from RC522 import RC522         # RFIDリーダー
-from SR04 import SR04           # 超音波距離センサ
+from SIMPLE_SWITCH import SIMPLE_SWITCH
 from LEAD_SWITCH import LEAD_SWITCH
 from LINE import LINE
 from google_home import google_home
@@ -26,13 +26,8 @@ async def authenticate_rfid():
         return True
     else:
         return False
-async def detect_human():
-    distance = SR04.get_distance()
-    if distance < DISTANCE:
-        print("Human detected.({:d}cm)".format(distance))
-        return distance
-    else:
-        return False
+async def has_key():
+    return SIMPLE_SWITCH.has_key()
 class State:
     def next_state(self):
         raise NotImplementedError("next_state is abstractmethod")
@@ -82,23 +77,26 @@ class Locked(State):
         loop = asyncio.get_event_loop()
         gather = asyncio.gather(
             authenticate_rfid(),
-            detect_human()
+            has_key()
         )
-        is_rfid_authenticated, is_detected_human = loop.run_until_complete(gather)
+        is_rfid_authenticated, has_key_inside_room = loop.run_until_complete(gather)
         if is_rfid_authenticated:
             if(time.time() - self.timer > NOTIFTY_INTERVAL):
                 self.exit_proc_flag |= Proc.LINE
             return True
-
-        if is_detected_human:
-            self.exit_proc_flag |= Proc.GHOME
-            return True
+        if has_key_inside_room:
+            self.had_key = True
+        else:
+            if self.had_key == True:
+                self.exit_proc_flag |= Proc.GHOME
+                return True
 
         return False
     def entry_proc(self):
         print("Lock!")
         self.reset()
         DS3225.rotate_motor(self.deg)
+        self.had_key = False
     def exit_proc(self):
         if(Proc.LINE in self.exit_proc_flag):
             asyncio.get_event_loop().run_in_executor(None, LINE.broadcast, "ただいま帰ったでござる。")
