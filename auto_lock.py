@@ -1,10 +1,10 @@
+import RPi.GPIO as GPIO
 import time
 import asyncio
 from enum import Flag, auto
 from DS3225 import DS3225       # モーター
 from RC522 import RC522         # RFIDリーダー
 from SIMPLE_SWITCH import SIMPLE_SWITCH
-from LEAD_SWITCH import LEAD_SWITCH
 from LINE import LINE
 from google_home import google_home
 
@@ -43,7 +43,7 @@ class Unlocked(State):
         self.name = "UNLOCKED"
         self.reset()
     def next_state(self):
-        if(LEAD_SWITCH.is_opened()):
+        if not SIMPLE_SWITCH.is_closed():
             self.reset()
             return "UNLOCKED"
         if (time.time() - self.timer) > UNLOCKED_TIME:
@@ -87,7 +87,7 @@ class Locked(State):
         if has_key_inside_room:
             self.had_key = True
         else:
-            if self.had_key == True:
+            if self.had_key is True:
                 self.exit_proc_flag |= Proc.GHOME
                 return True
 
@@ -126,7 +126,13 @@ class Door:
             self.state = self.states[next_state]
             self.state.entry_proc()
 
+LED_PIN = 17
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
 if __name__ == "__main__":
     door = Door()
     while True:
+        GPIO.output(LED_PIN, GPIO.HIGH)
         door.update_state()
+        GPIO.output(LED_PIN, GPIO.LOW)
+        time.sleep(0.1)
